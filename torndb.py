@@ -6,7 +6,7 @@
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
@@ -41,8 +41,9 @@ except ImportError:
     else:
         raise
 
-version = "0.3"
-version_info = (0, 3, 0, 0)
+version = "0.4"
+version_info = (0, 4, 0, 0)
+
 
 class Connection(object):
     """A lightweight wrapper around MySQLdb DB-API connections.
@@ -67,13 +68,15 @@ class Connection(object):
     Arguments read_timeout and write_timeout can be passed using kwargs, if
     MySQLdb version >= 1.2.5 and MySQL version > 5.1.12.
     """
+
     def __init__(self, host, database, user=None, password=None,
-                 max_idle_time=7 * 3600, connect_timeout=0,
-                 time_zone="+0:00", charset = "utf8", sql_mode="TRADITIONAL",
+                 max_idle_time=7 * 3600, connect_timeout=0, auto_commit=False,
+                 time_zone="+0:00", charset="utf8", sql_mode="TRADITIONAL",
                  **kwargs):
         self.host = host
         self.database = database
         self.max_idle_time = float(max_idle_time)
+        self.auto_commit = auto_commit
 
         args = dict(conv=CONVERSIONS, use_unicode=True, charset=charset,
                     db=database, init_command=('SET time_zone = "%s"' % time_zone),
@@ -118,7 +121,7 @@ class Connection(object):
         """Closes the existing database connection and re-opens it."""
         self.close()
         self._db = MySQLdb.connect(**self._db_args)
-        self._db.autocommit(True)
+        self._db.autocommit(self.auto_commit)
 
     def iter(self, query, *parameters, **kwparameters):
         """Returns an iterator for the given query and parameters."""
@@ -224,7 +227,7 @@ class Connection(object):
         # case by preemptively closing and reopening the connection
         # if it has been idle for too long (7 hours by default).
         if (self._db is None or
-            (time.time() - self._last_use_time > self.max_idle_time)):
+                (time.time() - self._last_use_time > self.max_idle_time)):
             self.reconnect()
         self._last_use_time = time.time()
 
@@ -240,14 +243,60 @@ class Connection(object):
             self.close()
             raise
 
+    def begin(self):
+        """
+        transaction begin
+        :return:
+        """
+        self._db.begin()
+
+    def commit(self):
+        """
+        transaction commit
+        :return:
+        """
+        self._db.commit()
+
+    def rollback(self):
+        """
+        transaction rollback
+        :return:
+        """
+        self._db.rollback()
+
 
 class Row(dict):
     """A dict that allows for object-like property access syntax."""
+
     def __getattr__(self, name):
         try:
             return self[name]
         except KeyError:
             raise AttributeError(name)
+
+
+def transaction(conn=None):
+    """
+    transaction support
+    :param conn:
+    :return:
+    """
+
+    def wrap(handler):
+        def transaction_manage(*args, **kw):
+            conn.begin()
+            try:
+                result = handler(*args, **kw)
+                conn.commit()
+                return result
+            except:
+                conn.rollback()
+                raise
+
+        return transaction_manage
+
+    return wrap
+
 
 if MySQLdb is not None:
     # Fix the access conversions to properly recognize unicode/binary

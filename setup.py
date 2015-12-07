@@ -16,15 +16,15 @@
 
 import distutils.core
 
-version = "0.3"
+version = "0.4"
 
 distutils.core.setup(
     name="torndb",
     version=version,
     py_modules=["torndb"],
-    author="Facebook",
-    author_email="python-tornado@googlegroups.com",
-    url="https://github.com/bdarnell/torndb",
+    author="ChengHao",
+    author_email="hao2432@gmail.com",
+    url="https://github.com/chenghao/torndb",
     license="http://www.apache.org/licenses/LICENSE-2.0",
     description="A lightweight wrapper around MySQLdb.  Originally part of the Tornado framework.",
     )
